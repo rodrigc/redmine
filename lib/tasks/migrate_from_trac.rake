@@ -277,7 +277,13 @@ namespace :redmine do
           u.password = 'tracmigratetoredmine'
           u.admin = true if TracPermission.find_by_username_and_action(username, 'admin')
           # finally, a default user is used if the new user is not valid
-          u = User.first unless u.save
+          unless u.save
+             u.errors.full_messages.each do |msg|
+               print "\nERROR: ",msg,"\n"
+             end
+             print "ERROR: Skipping user.\n"
+             u = User.first
+          end
         end
         # Make sure user is a member of the project
         if project_member && !u.member_of?(@target_project)
@@ -416,7 +422,13 @@ namespace :redmine do
         STDOUT.flush
           c = IssueCategory.new :project => @target_project,
                                 :name => encode(component.name[0, limit_for(IssueCategory, 'name')])
-        next unless c.save
+        unless c.save
+          c.errors.full_messages.each do |msg|
+            print "\nERROR: ",msg,"\n"
+          end
+          print "Error: Skipping category.\n"
+          next
+        end
         issues_category_map[component.name] = c
         migrated_components += 1
         end
@@ -434,7 +446,12 @@ namespace :redmine do
           p.content.text = milestone.description.to_s
           p.content.author = find_or_create_user('trac')
           p.content.comments = 'Milestone'
-          p.save
+          unless p.save
+            p.errors.full_messages.each do |msg|
+              print "\nERROR: ",msg,"\n"
+            end
+            print "ERROR: Error saving wiki page.\n"
+          end
 
           v = Version.new :project => @target_project,
                           :name => encode(milestone.name[0, limit_for(Version, 'name')]),
@@ -442,7 +459,13 @@ namespace :redmine do
                           :wiki_page_title => milestone.name.to_s,
                           :effective_date => milestone.completed
 
-          next unless v.save
+          unless v.save
+            v.errors.full_messages.each do |msg|
+              print "\nERROR: ",msg,"\n"
+            end
+            print "ERROR: Skipping version.\n"
+            next
+          end
           version_map[milestone.name] = v
           migrated_milestones += 1
         end
@@ -497,14 +520,26 @@ namespace :redmine do
           i.status = STATUS_MAPPING[ticket.status] || DEFAULT_STATUS
           i.tracker = TRACKER_MAPPING[ticket.ticket_type] || DEFAULT_TRACKER
           i.id = ticket.id unless Issue.exists?(ticket.id)
-          next unless i.save
+          unless i.save
+            i.errors.full_messages.each do |msg|
+              print "\nERROR: ",msg,"\n"
+            end
+            print "ERROR: Error saving issue.\n"
+            next
+          end
+
           TICKET_MAP[ticket.id] = i.id
           migrated_tickets += 1
 
           # Owner
             unless ticket.owner.blank?
               i.assigned_to = find_or_create_user(ticket.owner, true)
-              i.save
+              unless i.save
+                i.errors.full_messages.each do |msg|
+                  print "\nERROR: ",msg,"\n"
+                end
+                print "ERROR: Error saving issue.\n"
+              end
             end
 
           # Comments and status/resolution changes
@@ -606,6 +641,11 @@ namespace :redmine do
             page.content.text = convert_wiki_text(page.content.text)
             page.content.save
           end
+        else
+          wiki.errors.full_messages.each do |msg|
+            print "\nERROR: ",msg,"\n"
+          end
+          print "ERROR: Error saving wiki.\n"
         end
         puts
 
