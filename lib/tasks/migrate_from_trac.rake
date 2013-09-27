@@ -274,7 +274,7 @@ namespace :redmine do
                        :lastname => ln[0, limit_for(User, 'lastname')]
 
           u.login = username[0, User::LOGIN_LENGTH_LIMIT].gsub(/[^a-z0-9_\-@\.]/i, '-')
-          u.password = 'tracmigratetoredmine'
+          u.password = 'trac'
           u.admin = true if TracPermission.find_by_username_and_action(username, 'admin')
           # finally, a default user is used if the new user is not valid
           unless u.save
